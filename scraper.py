@@ -2,7 +2,7 @@
 
 import os
 import time
-import requests
+import base64
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
@@ -45,14 +45,24 @@ def download_image(driver, name):
         for img in image_elements:
             src = img.get_attribute('src')
             if src and 'data:image' not in src:
-                response = requests.get(src)
-                if response.status_code == 200:
+                # Use the browser's session to fetch the image via JavaScript
+                img_data = driver.execute_script("""
+                    var img = arguments[0];
+                    var canvas = document.createElement('canvas');
+                    canvas.width = img.naturalWidth;
+                    canvas.height = img.naturalHeight;
+                    var ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0);
+                    return canvas.toDataURL('image/jpeg').split(',')[1];
+                """, img)
+
+                if img_data:
                     filename = f"{name.replace(' ', '_')}.jpg"
                     filepath = os.path.join('output', filename)
-                    
+
                     with open(filepath, 'wb') as f:
-                        f.write(response.content)
-                    
+                        f.write(base64.b64decode(img_data))
+
                     print(f"Downloaded image for {name} to output/{filename}")
                     return True
         
